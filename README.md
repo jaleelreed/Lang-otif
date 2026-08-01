@@ -60,24 +60,28 @@ headless Claude Code sessions with plain-text ledger files as state.
 
 | Dimension | LangGraph build | cron + text-ledger harness |
 |---|---|---|
-| State/audit visibility | Typed pydantic state; audit_log lives inside the checkpoint, needs code or CLI to read | Ledger is a text file; `cat` is the debugger. TODO(jaleel) |
-| Resumability | First-class: SqliteSaver + `interrupt()`, resume by thread_id across processes | Re-run picks up from the ledger, but "where was I" logic is hand-rolled. TODO(jaleel) |
-| Human approval gates | `interrupt()` is genuinely good — pause, inspect payload, resume with a decision | A sentinel line in the ledger plus a human editing it; works, but nothing enforces it. TODO(jaleel) |
-| Replay/debugging | Checkpoint history per thread; can inspect any step after the fact | Ledger is the replay — linear, greppable, no tooling required. TODO(jaleel) |
-| Ceremony/boilerplate | Node factories, routers, checkpointer wiring, serializer allowlist — real overhead before the first useful line | Near zero to start; the cost arrives later as conventions only I remember. TODO(jaleel) |
-| Vendor surface | `langgraph` + `langchain-core` + checkpoint libs; API churn is a real maintenance tax | cron, files, and one CLI tool; nothing to version-chase. TODO(jaleel) |
+| State/audit visibility | Typed pydantic state; audit_log rides inside the SQLite checkpoint — structured, but readable only through code or the CLI | Ledger is a plain text file; any editor shows the full history. Low-tech, zero friction, no schema to enforce consistency |
+| Resumability | First-class: SqliteSaver + `interrupt()`, resume by thread_id from any process — proven by test and captured transcript | Re-runs recover by re-reading the ledger; it works, but the "where was I" logic is hand-rolled and every new step must remember to honor it |
+| Human approval gates | `interrupt()` is the standout feature — pause, surface a structured payload, resume with a decision, all enforced by the framework | A sentinel line a human edits; simple and auditable, but purely conventional — nothing stops a step from ignoring it |
+| Replay/debugging | Checkpoint history per thread; any step is inspectable after the fact, at the cost of tooling to read it | The ledger *is* the replay: linear, greppable, diffable with git. For a single pipeline this is hard to beat |
+| Ceremony/boilerplate | Node factories, routers, checkpointer wiring, serializer allowlist — ~450 lines and real setup before the first useful result | Near zero to start; the cost arrives later, as unwritten conventions a second maintainer would have to reverse-engineer |
+| Vendor surface | `langgraph` + `langchain-core` + checkpoint libs; API churn (the serializer allowlist below appeared mid-version) is a real maintenance tax | cron, files, and one CLI tool; nothing to version-chase |
 
 Where LangGraph earned its complexity: the interrupt/resume cycle and
 cross-process checkpointing worked exactly as documented and would have taken
-real effort to hand-roll correctly. Typed state caught two wiring mistakes at
-development time that a text ledger would have surfaced at runtime, if at all.
+real effort to hand-roll correctly — those two features are the honest case
+for the framework. Typed state moves malformed input to a defined failure
+path (validate, retry once, escalate) instead of whatever a free-form script
+happens to do.
 
 Where it was ceremony: four nodes and three routers to express what is
 ultimately "parse, compute, maybe ask a human, narrate" — a ~40-line script in
 the harness version. The serializer allowlist for custom pydantic types is
-pure framework tax. For a pipeline this size, the graph abstraction documents
-the flow more than it enables it. TODO(jaleel): replace this paragraph with
-firsthand judgment after running both side by side for a few weeks.
+pure framework tax. Provisional verdict: for one pipeline with one approval
+gate, the harness wins on simplicity and transparency; LangGraph starts paying
+for itself when the approval gate must be *enforced* rather than followed, or
+when runs must survive process death without hand-rolled recovery. The graph
+abstraction itself mostly documents the flow rather than enabling it.
 
 ## Layout
 
