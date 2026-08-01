@@ -1,0 +1,67 @@
+﻿Resumability proof - captured 2026-08-01 on Windows 11, Python 3.12.10
+Two separate OS processes share only the SQLite checkpoint file (proof.sqlite).
+
+PS> python -m otif_graph.cli --db proof.sqlite run meridian --thread-id proof-1
+
+thread_id: proof-1
+audit log:
+  2026-08-01T14:19:03+00:00 intake: parsed 6 records for Meridian Freight (attempt 1)
+  2026-08-01T14:19:03+00:00 scoring: OTIF 33.3% grade F, 4 flagged; needs_review=True
+
+*** INTERRUPTED — human review required ***
+{
+  "score": {
+    "on_time_pct": 66.7,
+    "in_full_pct": 66.7,
+    "otif_pct": 33.3,
+    "grade": "F",
+    "per_shipment_flags": {
+      "M-002": [
+        "late",
+        "critical"
+      ],
+      "M-003": [
+        "short",
+        "critical"
+      ],
+      "M-004": [
+        "late"
+      ],
+      "M-006": [
+        "short"
+      ]
+    }
+  },
+  "critical_flags": {
+    "M-002": [
+      "late",
+      "critical"
+    ],
+    "M-003": [
+      "short",
+      "critical"
+    ]
+  },
+  "proposed_action": "Open a corrective-action claim against the carrier"
+}
+
+resume with: python -m otif_graph.cli resume proof-1 approve|reject|rescore
+
+[process exited with code 0 - Python process is gone; graph state lives only in proof.sqlite]
+
+PS> python -m otif_graph.cli --db proof.sqlite resume proof-1 approve   (new process)
+
+thread_id: proof-1
+audit log:
+  2026-08-01T14:19:03+00:00 intake: parsed 6 records for Meridian Freight (attempt 1)
+  2026-08-01T14:19:03+00:00 scoring: OTIF 33.3% grade F, 4 flagged; needs_review=True
+  2026-08-01T14:19:05+00:00 escalation: human decision: approve
+  2026-08-01T14:19:05+00:00 explainer: wrote 61-word narrative
+
+result: OTIF 33.3% (on-time 66.7%, in-full 66.7%) grade F
+flags: {'M-002': ['late', 'critical'], 'M-003': ['short', 'critical'], 'M-004': ['late'], 'M-006': ['short']}
+
+narrative:
+Meridian Freight fell well short this period. Only 66.7% of shipments arrived on time and 66.7% arrived in full, and OTIF landed at 33.3% for a grade of F. Two shipments were critically flagged — one severely late and one roughly half-filled — and a reviewer has signed off on the escalation. Recommend a corrective-action request before the next planning cycle.
+
+[process exited with code 0 - resumed from checkpoint, escalation approved, narrative written]

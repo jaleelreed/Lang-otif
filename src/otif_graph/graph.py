@@ -5,6 +5,7 @@ process restarts.
 """
 import sqlite3
 
+from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
 from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.graph import END, StateGraph
 
@@ -46,4 +47,12 @@ def build_graph(llm, db_path: str):
                             {"intake": "intake", "explainer": "explainer", END: END})
     g.add_edge("explainer", END)
     conn = sqlite3.connect(db_path, check_same_thread=False)
-    return g.compile(checkpointer=SqliteSaver(conn))
+    # explicit allowlist so our pydantic state round-trips checkpoints without
+    # the unregistered-type deprecation warning
+    serde = JsonPlusSerializer(allowed_msgpack_modules=[
+        ("otif_graph.state", "ShipmentBatch"),
+        ("otif_graph.state", "ShipmentRecord"),
+        ("otif_graph.state", "OtifResult"),
+        ("otif_graph.state", "GraphState"),
+    ])
+    return g.compile(checkpointer=SqliteSaver(conn, serde=serde))
