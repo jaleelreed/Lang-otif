@@ -110,3 +110,10 @@ def test_critical_fill_boundary():
 
 def test_zero_ordered_quantity_not_critical():
     assert flags_for(rec(ordered=0, delivered=0)) == []
+
+
+def test_miss_drivers_default_policy():
+    # unweighted: each miss costs an equal share
+    result = score(batch([rec(sid="A"), rec(sid="B", days_late=1),
+                          rec(sid="C", delivered=50), rec(sid="D")]))
+    assert result.miss_drivers == {"B": 25.0, "C": 25.0}

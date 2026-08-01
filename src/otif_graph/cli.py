@@ -17,9 +17,22 @@ from langgraph.types import Command
 
 from otif_graph.graph import build_graph
 from otif_graph.llm import OLLAMA_HELP, FakeLLM, OllamaLLM, ollama_reachable
+from otif_graph.state import ScoringPolicy
 
-FIXTURES_DIR = pathlib.Path(__file__).resolve().parents[2] / "fixtures" / "sample_requests"
+FIXTURES_ROOT = pathlib.Path(__file__).resolve().parents[2] / "fixtures"
+FIXTURES_DIR = FIXTURES_ROOT / "sample_requests"
+POLICIES_DIR = FIXTURES_ROOT / "policies"
 DEFAULT_DB = "otif_checkpoints.sqlite"
+
+
+def load_policy(name: str | None) -> ScoringPolicy | None:
+    if name is None:
+        return None
+    path = POLICIES_DIR / f"{name}.json"
+    if not path.exists():
+        options = ", ".join(sorted(p.stem for p in POLICIES_DIR.glob("*.json")))
+        sys.exit(f"unknown policy {name!r}; options: {options}")
+    return ScoringPolicy.model_validate_json(path.read_text(encoding="utf-8"))
 
 
 def get_llm(local: bool):
@@ -48,7 +61,8 @@ def print_outcome(out: dict, thread_id: str) -> None:
     result = out.get("result")
     if result is not None:
         print(f"\nresult: OTIF {result.otif_pct}% (on-time {result.on_time_pct}%, "
-              f"in-full {result.in_full_pct}%) grade {result.grade}")
+              f"in-full {result.in_full_pct}%) grade {result.grade} "
+              f"[policy {result.policy_id}/{result.policy_version}]")
         if result.per_shipment_flags:
             print(f"flags: {result.per_shipment_flags}")
     if out.get("narrative"):
@@ -62,8 +76,10 @@ def cmd_run(args) -> dict:
         sys.exit(f"unknown fixture {args.fixture!r}; options: {options}")
     thread_id = args.thread_id or uuid.uuid4().hex[:8]
     graph = build_graph(get_llm(args.local), args.db)
-    out = graph.invoke({"raw_request": path.read_text(encoding="utf-8")},
-                       config={"configurable": {"thread_id": thread_id}})
+    inputs = {"raw_request": path.read_text(encoding="utf-8")}
+    if (policy := load_policy(args.policy)) is not None:
+        inputs["policy"] = policy
+    out = graph.invoke(inputs, config={"configurable": {"thread_id": thread_id}})
     print_outcome(out, thread_id)
     return out
 
@@ -79,10 +95,12 @@ def cmd_resume(args) -> dict:
 def cmd_demo(args) -> None:
     graph = build_graph(get_llm(args.local), args.db)
 
-    def run(fixture: str, thread_id: str) -> dict:
+    def run(fixture: str, thread_id: str, policy: str | None = None) -> dict:
         text = (FIXTURES_DIR / f"{fixture}.txt").read_text(encoding="utf-8")
-        return graph.invoke({"raw_request": text},
-                            config={"configurable": {"thread_id": thread_id}})
+        inputs = {"raw_request": text}
+        if policy is not None:
+            inputs["policy"] = load_policy(policy)
+        return graph.invoke(inputs, config={"configurable": {"thread_id": thread_id}})
 
     print("=" * 70)
     print("DEMO 1/3 — blue_ridge: clean pass (intake -> scoring -> explainer)")
@@ -97,8 +115,13 @@ def cmd_demo(args) -> None:
     print_outcome(out, "demo-escalation")
 
     print("\n" + "=" * 70)
-    print("DEMO 3/3 — cascade: malformed request exercises the intake retry path")
+    print("DEMO 3/4 — cascade: malformed request exercises the intake retry path")
     print_outcome(run("cascade", "demo-retry"), "demo-retry")
+
+    print("\n" + "=" * 70)
+    print("DEMO 4/4 — same cascade data under the bigbox-retail policy:")
+    print("unit-weighted, 95% review threshold — the clean pass becomes a review")
+    print_outcome(run("cascade", "demo-policy", policy="bigbox-retail"), "demo-policy")
 
 
 def main(argv=None):
@@ -112,6 +135,8 @@ def main(argv=None):
     p_run = sub.add_parser("run", help="run a sample request")
     p_run.add_argument("fixture")
     p_run.add_argument("--thread-id")
+    p_run.add_argument("--policy", help="scoring policy from fixtures/policies/ "
+                                        "(default: standard baked into the engine)")
     p_run.set_defaults(func=cmd_run)
 
     p_resume = sub.add_parser("resume", help="resume an interrupted run")

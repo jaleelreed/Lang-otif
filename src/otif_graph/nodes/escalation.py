@@ -19,9 +19,11 @@ def escalation(state: GraphState) -> dict:
                      if "critical" in f}
         payload = {"score": state.result.model_dump(),
                    "critical_flags": criticals,
+                   "miss_drivers": state.result.miss_drivers,
                    "proposed_action": ("Open a corrective-action claim against the carrier"
-                                       if state.result.otif_pct < 85
-                                       else "Review critical shipments before publishing")}
+                                       if criticals
+                                       else "Score is below the contract review threshold — "
+                                            "confirm before publishing")}
     decision = interrupt(payload)
     if decision not in ("approve", "reject", "rescore"):
         raise ValueError(f"decision must be approve|reject|rescore, got {decision!r}")

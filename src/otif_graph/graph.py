@@ -53,6 +53,7 @@ def build_graph(llm, db_path: str):
         ("otif_graph.state", "ShipmentBatch"),
         ("otif_graph.state", "ShipmentRecord"),
         ("otif_graph.state", "OtifResult"),
+        ("otif_graph.state", "ScoringPolicy"),
         ("otif_graph.state", "GraphState"),
     ])
     return g.compile(checkpointer=SqliteSaver(conn, serde=serde))

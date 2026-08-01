@@ -1,5 +1,7 @@
 # otif-langgraph
 
+[![ci](https://github.com/jaleelreed/Lang-otif/actions/workflows/ci.yml/badge.svg)](https://github.com/jaleelreed/Lang-otif/actions/workflows/ci.yml)
+
 Agents are for orchestration and language; deterministic code is for anything a
 client audits. This repo rebuilds the orchestration slice of my OTIF (On-Time
 In-Full) scoring demo in LangGraph as an apples-to-apples comparison with my
@@ -40,9 +42,29 @@ pytest
 python -m otif_graph.cli demo
 ```
 
-The demo runs all three fixtures: a clean pass, a low-OTIF batch that trips
-the human-approval interrupt (then resumes with `approve`), and a garbled OCR
-scan that fails validation once and exercises the intake retry.
+The demo runs four scenarios: a clean pass, a low-OTIF batch that trips the
+human-approval interrupt (then resumes with `approve`), a garbled OCR scan
+that fails validation once and exercises the intake retry, and the same OCR
+data rescored under a stricter customer policy — where the clean pass becomes
+a mandatory review.
+
+## Contract terms are data, not code
+
+Real OTIF programs differ per customer and change at renegotiation, so grade
+bands, review thresholds, critical tolerances, and weighting (by shipment
+count vs by units) live in a versioned `ScoringPolicy`, not in the engine:
+
+```bash
+python -m otif_graph.cli run cascade --policy bigbox-retail
+```
+
+Cascade Carriers scores 87.5% (grade C, no review) under the standard policy,
+but 85.1% (grade D, mandatory review) under `bigbox-retail/2026-Q3`, which
+weights by units and reviews anything under 95%. Every result and audit line
+is stamped with the policy id/version that produced it, and the escalation
+payload includes `miss_drivers` — each failed shipment's weighted share of
+the score — so the reviewer sees what drove the miss, not just the number.
+The engine stays pure: domain complexity grows, the LLM surface doesn't.
 
 Interrupted runs survive process death. Run to the interrupt, kill the
 process, resume from another process — the SQLite checkpoint carries the
@@ -87,12 +109,12 @@ abstraction itself mostly documents the flow rather than enabling it.
 
 ```
 src/otif_graph/
-  state.py       # pydantic models + audit-line helper
+  state.py       # pydantic models incl. versioned ScoringPolicy + audit helper
   engine.py      # deterministic scoring; no LLM/HTTP/framework imports allowed
   nodes/         # intake (LLM), scoring (engine only), escalation, explainer (LLM)
   graph.py       # wiring + SqliteSaver checkpointer
   llm.py         # FakeLLM (default) + optional OllamaLLM
-  cli.py         # run | resume | demo
-tests/           # engine rules, flow/interrupt/restart, headline pins, no-LLM-in-math
-fixtures/        # 3 messy requests + pinned expected outputs
+  cli.py         # run | resume | demo, --policy to pick contract terms
+tests/           # engine rules, flow/interrupt/restart, pins, policy, no-LLM-in-math
+fixtures/        # 3 messy requests, 2 policies, pinned expected outputs
 ```

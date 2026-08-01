@@ -6,14 +6,14 @@ Enforced by tests/test_no_llm_in_math.py.
 from otif_graph import engine
 from otif_graph.state import GraphState, audit
 
-REVIEW_THRESHOLD_PCT = 85.0
-
 
 def scoring(state: GraphState) -> dict:
-    result = engine.score(state.batch)
+    policy = state.policy or engine.DEFAULT_POLICY
+    result = engine.score(state.batch, policy)
     has_critical = any("critical" in f for f in result.per_shipment_flags.values())
-    needs_review = result.otif_pct < REVIEW_THRESHOLD_PCT or has_critical
-    summary = (f"OTIF {result.otif_pct}% grade {result.grade}, "
+    needs_review = result.otif_pct < policy.review_threshold_pct or has_critical
+    summary = (f"OTIF {result.otif_pct}% grade {result.grade} under policy "
+               f"{policy.policy_id}/{policy.version}, "
                f"{len(result.per_shipment_flags)} flagged; needs_review={needs_review}")
     return {"result": result, "needs_review": needs_review,
             "audit_log": state.audit_log + [audit("scoring", summary)]}
