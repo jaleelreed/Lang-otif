@@ -1,9 +1,0 @@
-{
-  "policy_id": "standard",
-  "version": "v1",
-  "grade_bands": {"A": 95.0, "B": 90.0, "C": 80.0, "D": 70.0},
-  "review_threshold_pct": 85.0,
-  "critical_days_late": 7,
-  "critical_fill_rate": 0.80,
-  "weighting": "shipments"
-}

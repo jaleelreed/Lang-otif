@@ -1,9 +1,0 @@
-{
-  "policy_id": "bigbox-retail",
-  "version": "2026-Q3",
-  "grade_bands": {"A": 98.0, "B": 95.0, "C": 90.0, "D": 80.0},
-  "review_threshold_pct": 95.0,
-  "critical_days_late": 2,
-  "critical_fill_rate": 0.95,
-  "weighting": "units"
-}
