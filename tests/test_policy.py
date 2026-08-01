@@ -3,13 +3,13 @@ the policy that produced them, and a stricter contract flips outcomes on the
 same underlying data."""
 import json
 
-from conftest import EXPECTED, REPO, node_order, raw_request
+from conftest import EXPECTED, POLICIES, node_order, raw_request
 from otif_graph.engine import score
 from otif_graph.llm import _CASCADE
 from otif_graph.state import ScoringPolicy, ShipmentBatch
 
 BIGBOX = ScoringPolicy.model_validate_json(
-    (REPO / "fixtures" / "policies" / "bigbox-retail.json").read_text(encoding="utf-8"))
+    (POLICIES / "bigbox-retail.json").read_text(encoding="utf-8"))
 CASCADE_BATCH = ShipmentBatch.model_validate(_CASCADE)
 
 

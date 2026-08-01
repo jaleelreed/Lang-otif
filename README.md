@@ -112,9 +112,40 @@ src/otif_graph/
   state.py       # pydantic models incl. versioned ScoringPolicy + audit helper
   engine.py      # deterministic scoring; no LLM/HTTP/framework imports allowed
   nodes/         # intake (LLM), scoring (engine only), escalation, explainer (LLM)
-  graph.py       # wiring + SqliteSaver checkpointer
+  graph.py       # wiring + checkpointer factory (SQLite default, Postgres via env)
   llm.py         # FakeLLM (default) + optional OllamaLLM
   cli.py         # run | resume | demo, --policy to pick contract terms
+  fixtures/      # 3 messy requests, 2 policies, pinned outputs (ships in the wheel)
 tests/           # engine rules, flow/interrupt/restart, pins, policy, no-LLM-in-math
-fixtures/        # 3 messy requests, 2 policies, pinned expected outputs
 ```
+
+## Deploying elsewhere
+
+The package installs and runs from anywhere — fixtures ship as package data
+and the CLI is a console script:
+
+```bash
+pip install "git+https://github.com/jaleelreed/Lang-otif"
+otif-graph demo
+otif-graph run cascade --policy bigbox-retail
+```
+
+The checkpoint backend is selectable by environment. Local SQLite is the
+default; for shared or concurrent deployments (a service, serverless workers),
+point `OTIF_CHECKPOINT_DSN` at Postgres and install the extra:
+
+```bash
+pip install "otif-langgraph[postgres] @ git+https://github.com/jaleelreed/Lang-otif"
+```
+
+```bash
+OTIF_CHECKPOINT_DSN=postgresql://user:pass@host/db otif-graph run meridian
+```
+
+(The Postgres path is code-only in this repo — exercised for its error
+handling but not against a live server, same convention as `OllamaLLM`.)
+
+For reuse in another codebase entirely: `engine.py` and `state.py` depend on
+nothing but pydantic — lift them as-is and the no-LLM-in-math guarantee comes
+along. The `LLM` protocol in `llm.py` is a single `complete(prompt) -> str`
+method, so pointing intake/explainer at any hosted model is a ~15-line class.

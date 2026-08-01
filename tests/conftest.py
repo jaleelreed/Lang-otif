@@ -6,8 +6,10 @@ from otif_graph.graph import build_graph
 from otif_graph.llm import FakeLLM
 
 REPO = pathlib.Path(__file__).resolve().parents[1]
-FIXTURES = REPO / "fixtures" / "sample_requests"
-EXPECTED = REPO / "fixtures" / "expected"
+FIXTURES_ROOT = REPO / "src" / "otif_graph" / "fixtures"
+FIXTURES = FIXTURES_ROOT / "sample_requests"
+EXPECTED = FIXTURES_ROOT / "expected"
+POLICIES = FIXTURES_ROOT / "policies"
 
 
 @pytest.fixture

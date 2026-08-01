@@ -1,0 +1,9 @@
+{
+  "on_time_pct": 87.5,
+  "in_full_pct": 100.0,
+  "otif_pct": 87.5,
+  "grade": "C",
+  "per_shipment_flags": {
+    "C-104": ["late"]
+  }
+}

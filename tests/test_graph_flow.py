@@ -1,11 +1,14 @@
 """Full graph runs on each fixture: node order, interrupt/resume routing, and
 resumability across a real process restart."""
+import importlib.util
 import subprocess
 import sys
 
+import pytest
 from langgraph.types import Command
 
 from conftest import node_order, raw_request
+from otif_graph.graph import make_checkpointer
 
 
 def invoke(graph, name, thread_id):
@@ -69,6 +72,14 @@ def test_resume_rescore_loops_to_intake(graph):
     assert node_order(out["audit_log"]) == [
         "intake", "scoring", "escalation", "intake", "scoring"]
     assert "[reviewer note:" in out["raw_request"]
+
+
+def test_postgres_dsn_without_extra_gives_clear_error(tmp_path):
+    if importlib.util.find_spec("langgraph.checkpoint.postgres"):
+        pytest.skip("postgres extra installed; guard path not reachable")
+    with pytest.raises(RuntimeError, match=r"otif-langgraph\[postgres\]"):
+        make_checkpointer(str(tmp_path / "x.sqlite"), None,
+                          dsn="postgresql://example.invalid/otif")
 
 
 def test_resume_survives_process_restart(tmp_path):
